@@ -1,3 +1,6 @@
+# Fork of QuadricLoss
+This fork of QuadricLoss adds additional features to the mesh embedding.
+
 # Emebedding 3D models with Quadric Loss 
 ### BMVC 2019 [[Paper]](https://arxiv.org/abs/1907.10250)[[Project Page]](https://www.ics.uci.edu/~agarwal/quadricLoss/index.html)
 
