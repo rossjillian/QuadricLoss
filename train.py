@@ -1,6 +1,5 @@
 # Copyright (c) 2019 Nitin Agarwal (agarwal@uci.edu)
 
-
 from __future__ import print_function
 import sys
 import os
@@ -29,7 +28,8 @@ from provider import *
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataDir', type=str, default=" ", help='input data dir')
 parser.add_argument('--augment', action='store_true',  help='Data Augmentation')
-parser.add_argument('--num_points', type=int, default = 2500,  help='number of points')
+parser.add_argument('--color', default=None, help='Include color information in mesh embedding')
+parser.add_argument('--num_points', type=int, default=2500,  help='number of points')
 parser.add_argument('--small', action='store_true', help='train with small dataset')
 parser.add_argument('--cls', nargs="+", type=str, help='shape dataset')
 parser.add_argument('--seed', type=int, default=None,  help='seed')
@@ -43,12 +43,14 @@ parser.add_argument('--save_nth_epoch', type=int, default = 5, help='save networ
 parser.add_argument('--bottleneck_size', type=int, default = 1024, help='embedding size')
 parser.add_argument('--nb_primitives', type=int, default = 25, help='# primitives for AtlasNet')
 
+parser.add_argument('--visualize', default=False)
 parser.add_argument('--viz_env', type=str, default ="dgcnn_net", help='visdom environment')
 parser.add_argument('--chamLoss_wt', type=float, default=0.0, help='chamfer loss wt')
 parser.add_argument('--l1Loss_wt', type=float, default=0.0, help='l1 loss wt')
 parser.add_argument('--quadLoss_wt', type=float, default=0.0, help='quad loss wt')
 parser.add_argument('--sufNorLoss_wt', type=float, default=0.0, help='sufNorLoss_wt')
 parser.add_argument('--sufLoss_wt', type=float, default=0.0, help='sufLoss_wt')
+parser.add_argument('--colLoss_wt', type=float, default=0.0, help='Color loss wt')
 
 # Optimization 
 parser.add_argument('--lr', type=float, default=0.001, help='initial learning rate')
@@ -63,16 +65,17 @@ print (opt)
 
 # ============================================LOGS=================================================== #
 # Launch visdom for visualization
-viz = visdom.Visdom(port = 8888, env=opt.viz_env)
+if opt.visualize:
+    viz = visdom.Visdom(port = 8888, env=opt.viz_env)
 
-input_3D = create_visdom_curve(viz, typ='scatter', viz_env=opt.viz_env)
-output_3D = create_visdom_curve(viz, typ='scatter', viz_env=opt.viz_env)
-epoch_curve = create_visdom_curve(viz, typ='line', viz_env=opt.viz_env)
-epoch_curve_log = create_visdom_curve(viz, typ='line', viz_env=opt.viz_env)
-val_input_3D = create_visdom_curve(viz, typ='scatter', viz_env=opt.viz_env)
-val_output_3D = create_visdom_curve(viz, typ='scatter', viz_env=opt.viz_env)
+    input_3D = create_visdom_curve(viz, typ='scatter', viz_env=opt.viz_env)
+    output_3D = create_visdom_curve(viz, typ='scatter', viz_env=opt.viz_env)
+    epoch_curve = create_visdom_curve(viz, typ='line', viz_env=opt.viz_env)
+    epoch_curve_log = create_visdom_curve(viz, typ='line', viz_env=opt.viz_env)
+    val_input_3D = create_visdom_curve(viz, typ='scatter', viz_env=opt.viz_env)
+    val_output_3D = create_visdom_curve(viz, typ='scatter', viz_env=opt.viz_env)
 
-dir_name =  os.path.join('log', opt.logf)
+dir_name = os.path.join('log', opt.logf)
 
 if not os.path.exists(dir_name):
     os.makedirs(dir_name)
@@ -85,7 +88,6 @@ print("Random Seed: ", opt.seed)
 random.seed(opt.seed)
 torch.manual_seed(opt.seed)
 
-
 # ===============================================LOAD DATASET================================= #
 
 traindataset = getDataset(root=opt.dataDir, train=True, data_augment=opt.augment, small=opt.small, category=opt.cls)
@@ -93,7 +95,7 @@ traindataloader = torch.utils.data.DataLoader(traindataset, batch_size = opt.bat
                                               shuffle=True, num_workers=opt.workers)
 
 testdataset = getDataset(root=opt.dataDir, train=False, data_augment=False, small=opt.small, category=opt.cls)
-testdataloader = torch.utils.data.DataLoader(testdataset, batch_size = opt.batchSize,
+testdataloader = torch.utils.data.DataLoader(testdataset, batch_size=opt.batchSize,
                                              shuffle=False, num_workers=opt.workers)
 
 print('Train Dataset:', len(traindataset))
@@ -108,12 +110,11 @@ model_summary(network, True)
 
 if opt.model != 'None':
     network.load_state_dict(torch.load(opt.model))
-    print(" Previous weight loaded ")
+    print("Previous weight loaded")
 
 
-optimizer = optim.Adam(network.parameters(), lr = opt.lr, weight_decay=opt.wd)
+optimizer = optim.Adam(network.parameters(), lr=opt.lr, weight_decay=opt.wd)
 scheduler = lr_scheduler.StepLR(optimizer, step_size=opt.lr_steps, gamma=opt.lr_decay) 
-
 
 train_loss = AverageValueMeter()
 val_loss = AverageValueMeter()
@@ -127,26 +128,29 @@ train_curve = []
 val_curve = []
 
 
-
 def train(ep):
     network.train()
     
     for i, data in enumerate(traindataloader, 0):
         optimizer.zero_grad()
         
-        points, Q, adj, normal, face_coords = data
+        points, Q, adj, normal, face_coords, color = data
         points = points.transpose(2,1)
-        
+        color_points = torch.cat((points, color), 2)
+
         points = points.cuda()
         Q = Q.cuda()
         adj = adj.cuda()
         normal = normal.cuda()
         face_coords = face_coords.cuda()
+        color = color.cuda()
+        color_points.cuda()
         
-        recon_points  = network(points) 
-        
-        recon_points = recon_points.transpose(2,1)
+        recon_color_points = network(color_points)
+        recon_color_points = recon_color_points.transpose(2,1)
+        recon_points, recon_color = torch.split(recon_color_points, opt.num_points)
         points = points.transpose(2,1)
+        color = color.transpose(2,1)
 
         chamLoss, corres, _ = chamferLoss(points, recon_points, average=False)
         l1Loss = l1_loss(points, recon_points)
@@ -158,6 +162,7 @@ def train(ep):
         quadLoss = quadric_loss(Q, recon_points)
         sufNorLoss = surface_normal_loss(points, adj, recon_points, normal)
         sufLoss = surfaceLoss(recon_points, face_coords)
+        colLoss = l1_loss(recon_color, color)
 
         # Total loss function
         loss_net = opt.chamLoss_wt * chamLoss
@@ -165,6 +170,7 @@ def train(ep):
         loss_net += opt.quadLoss_wt * quadLoss 
         loss_net += opt.sufNorLoss_wt * sufNorLoss 
         loss_net += opt.sufLoss_wt * sufLoss 
+        loss_net += opt.colLoss_wt * colLoss
 
         train_loss.update(loss_net.item())
         
@@ -172,25 +178,27 @@ def train(ep):
         optimizer.step() 
         
         # visualize
-        if i%20 <= 0:
-            viz.scatter(
-                X = points[0].data.cpu(),
-                win = input_3D, 
-                env = opt.viz_env,
-                opts=dict(title='Input PC [%s]' %(opt.logf), markersize = 1)
-            )
+        if opt.visualize:
+            if i%20 <= 0:
+                viz.scatter(
+                    X = points[0].data.cpu(),
+                    win = input_3D,
+                    env = opt.viz_env,
+                    opts=dict(title='Input PC [%s]' %(opt.logf), markersize = 1)
+                )
+
+                viz.scatter(
+                    X = recon_points[0].data.cpu(),
+                    win = output_3D,
+                    env = opt.viz_env,
+                    opts=dict(title='Recon PC [%s]' %(opt.logf), markersize = 1)
+                )
             
-            viz.scatter(
-                X = recon_points[0].data.cpu(),
-                win = output_3D, 
-                env = opt.viz_env,
-                opts=dict(title='Recon PC [%s]' %(opt.logf), markersize = 1)
-            )
-            
-        print('[%d: %d/%d] train loss:  %f; C: %f, Q: %f, N: %f, S: %f' %(ep, i, len(traindataloader),
+        print('[%d: %d/%d] train loss:  %f; C: %f, Q: %f, N: %f, S: %f' % (ep, i, len(traindataloader),
                                                                           loss_net.item(), chamLoss.item(),
                                                                           quadLoss.item(), sufNorLoss.item(),
                                                                           sufLoss.item() ))
+
 
 def test(ep):
     network.eval()
@@ -198,57 +206,65 @@ def test(ep):
     
     with torch.no_grad():
         for i, data in enumerate(testdataloader, 0):
-
-            points, Q, adj, normal, face_coords = data
-            points = points.transpose(2,1)
+            points, Q, adj, normal, face_coords, color = data
+            points = points.transpose(2, 1)
+            color_points = torch.cat((points, color), 2)
 
             points = points.cuda()
             Q = Q.cuda()
             adj = adj.cuda()
             normal = normal.cuda()
             face_coords = face_coords.cuda()
+            color = color.cuda()
+            color_points.cuda()
 
-            recon_points  = network(points) 
-            
-            recon_points = recon_points.transpose(2,1)
-            points = points.transpose(2,1)
+            recon_color_points = network(color_points)
+            recon_color_points = recon_color_points.transpose(2, 1)
+            recon_points, recon_color = torch.split(recon_color_points, opt.num_points)
+            points = points.transpose(2, 1)
+            color = color.transpose(2, 1)
 
             chamLoss, corres, _ = chamferLoss(points, recon_points, average=False)
             l1Loss = l1_loss(points, recon_points)
 
             corres = corres.type(torch.cuda.LongTensor)
-            recon_vertices = torch.cat([torch.index_select(a, 0, ind).unsqueeze(0) for a, ind in zip(recon_points, corres)])
+            recon_vertices = torch.cat(
+                [torch.index_select(a, 0, ind).unsqueeze(0) for a, ind in zip(recon_points, corres)])
             recon_points = recon_vertices
-            
+
             quadLoss = quadric_loss(Q, recon_points)
             sufNorLoss = surface_normal_loss(points, adj, recon_points, normal)
             sufLoss = surfaceLoss(recon_points, face_coords)
+            colLoss = l1_loss(recon_color, color)
 
             # Total loss function
             loss_net = opt.chamLoss_wt * chamLoss
-            loss_net += opt.l1Loss_wt * l1Loss 
-            loss_net += opt.quadLoss_wt * quadLoss 
-            loss_net += opt.sufNorLoss_wt * sufNorLoss 
-            loss_net += opt.sufLoss_wt * sufLoss 
+            loss_net += opt.l1Loss_wt * l1Loss
+            loss_net += opt.quadLoss_wt * quadLoss
+            loss_net += opt.sufNorLoss_wt * sufNorLoss
+            loss_net += opt.sufLoss_wt * sufLoss
+            loss_net += opt.colLoss_wt * colLoss
 
             val_loss.update(loss_net.item())
-            
-            if i==disp:
-                viz.scatter(
-                    X = points[0].data.cpu(),
-                    win = val_input_3D, 
-                    env = opt.viz_env,
-                    opts=dict(title='Val Input PC [%s]' %(opt.logf), markersize = 1)
-                )
-                
-                viz.scatter(
-                    X = recon_points[0].data.cpu(),
-                    win = val_output_3D, 
-                    env = opt.viz_env,
-                    opts=dict(title='Val Recon PC [%s]' %(opt.logf), markersize = 1)
-                )
 
-            print('[%d: %d/%d] val loss:  %f ' %(ep, i, len(testdataloader), loss_net.item() ))
+            if opt.visualize:
+                if i==disp:
+                    viz.scatter(
+                        X = points[0].data.cpu(),
+                        win = val_input_3D,
+                        env = opt.viz_env,
+                        opts=dict(title='Val Input PC [%s]' %(opt.logf), markersize = 1)
+                    )
+
+                    viz.scatter(
+                        X = recon_points[0].data.cpu(),
+                        win = val_output_3D,
+                        env = opt.viz_env,
+                        opts=dict(title='Val Recon PC [%s]' %(opt.logf), markersize = 1)
+                    )
+
+            print('[%d: %d/%d] val loss:  %f ' % (ep, i, len(testdataloader), loss_net.item() ))
+
 
 def main():
     
@@ -267,45 +283,46 @@ def main():
             print('Learning rate: %.7f [%.7f]' % (param_group['lr'], current_lr))
             current_lr = param_group['lr']
 
-        # update visdom curves
-        train_curve.append(train_loss.avg)
-        val_curve.append(val_loss.avg)
+        if opt.visualize:
+            # update visdom curves
+            train_curve.append(train_loss.avg)
+            val_curve.append(val_loss.avg)
 
-        viz.line(X = np.array([epoch]), 
-            Y = np.array([train_loss.avg]), 
-            win = epoch_curve,
-            env = opt.viz_env,
-            update = 'append', 
-            name = 'Train',
-            opts=dict(title='Train/Test Loss [%s], lr=%f; wd=%f' %(opt.logf, opt.lr, opt.wd), showlegend=True)
-        )
+            viz.line(X = np.array([epoch]),
+                Y = np.array([train_loss.avg]),
+                win = epoch_curve,
+                env = opt.viz_env,
+                update = 'append',
+                name = 'Train',
+                opts=dict(title='Train/Test Loss [%s], lr=%f; wd=%f' %(opt.logf, opt.lr, opt.wd), showlegend=True)
+            )
 
-        viz.line(X = np.array([epoch]), 
-            Y = np.array([val_loss.avg]), 
-            win = epoch_curve,
-            env = opt.viz_env,
-            update = 'append', 
-            name='Test',
-            opts=dict(title='Train/Test Loss [%s], lr=%f; wd=%f' %(opt.logf, opt.lr, opt.wd), showlegend=True)
-        )
+            viz.line(X = np.array([epoch]),
+                Y = np.array([val_loss.avg]),
+                win = epoch_curve,
+                env = opt.viz_env,
+                update = 'append',
+                name='Test',
+                opts=dict(title='Train/Test Loss [%s], lr=%f; wd=%f' %(opt.logf, opt.lr, opt.wd), showlegend=True)
+            )
 
-        viz.line(X = np.array([epoch]), 
-            Y = np.array([math.log(train_loss.avg)]), 
-            win = epoch_curve_log,
-            env = opt.viz_env,
-            update = 'append', 
-            name = 'Train',
-            opts=dict(title='Train/Test Loss(log) [%s], lr=%f; wd=%f' %(opt.logf, opt.lr, opt.wd), showlegend=True)
-        )
+            viz.line(X = np.array([epoch]),
+                Y = np.array([math.log(train_loss.avg)]),
+                win = epoch_curve_log,
+                env = opt.viz_env,
+                update = 'append',
+                name = 'Train',
+                opts=dict(title='Train/Test Loss(log) [%s], lr=%f; wd=%f' %(opt.logf, opt.lr, opt.wd), showlegend=True)
+            )
 
-        viz.line(X = np.array([epoch]), 
-            Y = np.array([math.log(val_loss.avg)]), 
-            win = epoch_curve_log,
-            env = opt.viz_env,
-            update = 'append', 
-            name='Test',
-            opts=dict(title='Train/Test Loss(log) [%s], lr=%f; wd=%f' %(opt.logf, opt.lr, opt.wd), showlegend=True)
-        )
+            viz.line(X = np.array([epoch]),
+                Y = np.array([math.log(val_loss.avg)]),
+                win = epoch_curve_log,
+                env = opt.viz_env,
+                update = 'append',
+                name='Test',
+                opts=dict(title='Train/Test Loss(log) [%s], lr=%f; wd=%f' %(opt.logf, opt.lr, opt.wd), showlegend=True)
+            )
 
         # update best test_loss and save the net
         if val_loss.avg < best_val_loss:
@@ -316,7 +333,6 @@ def main():
         
         elif (epoch+1) % opt.save_nth_epoch == 0:
             torch.save(network.state_dict(), os.path.join(dir_name,'ae_net_'+str(epoch)+'.pth'))
-
 
         log_table = {
           "train_loss" : train_loss.avg,

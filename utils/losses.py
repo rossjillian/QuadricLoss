@@ -174,7 +174,6 @@ def normal_loss(N1, N2):
     return torch.max(loss), torch.mean(loss), torch.min(loss)
 
 
-
 def where(cond, x_1, x_2):
     cond = cond.type(x_1.dtype)
     return (cond*x_1) + ((1-cond)*x_2)
@@ -232,7 +231,7 @@ def surfaceLoss(points, faces):
     #region 2
     temp0 = b+d
     temp1 = c+e
-    numer = temp1 -temp0
+    numer = temp1 - temp0
     denom = a - 2*b +c
     ss = numer/(denom+1e-12)
     tt = 1 - ss
@@ -247,7 +246,7 @@ def surfaceLoss(points, faces):
     numer = temp1 -temp0
     denom = a-2*b+c
     tt = numer/(denom+1e-12)
-    ss = 1 -tt
+    ss = 1 - tt
     dist612 = ss*(a*ss+b*tt+2*d)+tt*(b*ss+c*tt+2*e)+f
     dist61 = where(numer>=denom,c+2*e+f,dist612)
     dist62 = where(temp1<=0,a+2*d+f, where(d>=0,f,-d*d/a+f))
@@ -278,7 +277,6 @@ def surfaceLoss(points, faces):
 
     dist = torch.sum(dist, -1)
     return torch.mean(dist)
-
 
 
 if __name__ == "__main__":
@@ -319,7 +317,6 @@ if __name__ == "__main__":
     V_query.requires_grad_()
     V_query = V_query.to('cuda')
 
-    
     """testing various loss functions"""
     loss, _, _ = chamferLoss(V, V_query)
     loss.backward()

@@ -44,7 +44,7 @@ parser.add_argument('--chamLoss_wt', action='store_true',  help='compute chamfer
 parser.add_argument('--quadLoss_wt', action='store_true',  help='compute quadric loss')
 
 opt = parser.parse_args()
-print (opt)
+print(opt)
 
 if not os.path.exists(opt.outf):
     os.makedirs(dir_name)
@@ -130,7 +130,7 @@ with torch.no_grad():
         mesh_name = dataset.datapath[i]["path"]
         _, mesh_name = os.path.split(mesh_name)
         mesh_name = mesh_name.split('.')[0]
-        points, Q, _, _, _ = data
+        points, Q, _, _, _, color = data
 
         points = points.unsqueeze(0)
         points = points.transpose(2,1)
@@ -139,7 +139,7 @@ with torch.no_grad():
         Q = Q.cuda()
         Q = Q.unsqueeze(0)
 
-        recon_points  = network.forward_inference(points, grid)
+        recon_points = network.forward_inference(points, grid)
 
         recon_points = recon_points.transpose(2,1)
         points = points.transpose(2,1)
@@ -159,7 +159,6 @@ with torch.no_grad():
         else:
             loss.append(quadLoss.item())
             print('quadLoss ', quadLoss.item())
-        
 
         # writing reconstructed mesh file
         points = points.squeeze(0)
@@ -169,9 +168,9 @@ with torch.no_grad():
         save_xyz_data(os.path.join(opt.outf, mesh_name+'_recon.xyz'), recon_points.data.cpu())            # recon points
         save_obj_data(os.path.join(opt.outf, mesh_name+'_recon.obj'), recon_points.data.cpu(), faces)     # recon mesh
 
-    print('Mean %d values is %f' %(len(loss), np.mean(loss)))
-    print('Median %d values is %f' %(len(loss), np.median(loss)))
-    print('Max %d values is %f' %(len(loss), np.max(loss)))
+    print('Mean %d values is %f' % (len(loss), np.mean(loss)))
+    print('Median %d values is %f' % (len(loss), np.median(loss)))
+    print('Max %d values is %f' % (len(loss), np.max(loss)))
 
 
 

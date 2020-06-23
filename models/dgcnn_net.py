@@ -12,7 +12,7 @@ import torch.nn.functional as F
 
 from init import *
 
-sys.path.append('./utils/')
+sys.path.append('../utils/')
 from pc_utils import model_summary
 
 
@@ -97,12 +97,14 @@ class dgcnn_encoder(nn.Module):
         # Bx1024
         x = x.view(B, -1)
 
+        # Bx1027
+
         return x
 
 
 """ Decoders"""
 class PointGenCon(nn.Module):
-    def __init__(self, bottleneck_size = 2500):
+    def __init__(self, bottleneck_size=2500):
         self.bottleneck_size = bottleneck_size
         super(PointGenCon, self).__init__()
         self.conv1 = torch.nn.Conv1d(self.bottleneck_size, self.bottleneck_size, 1)
@@ -125,7 +127,7 @@ class PointGenCon(nn.Module):
 
 
 class DG_AtlasNet(nn.Module):
-    def __init__(self, num_points = 2048, bottleneck_size = 1024, nb_primitives = 1, K=20):
+    def __init__(self, num_points=2048, bottleneck_size=1024, nb_primitives=1, K=20):
         super(DG_AtlasNet, self).__init__()
         
         self.num_points = num_points
@@ -139,12 +141,12 @@ class DG_AtlasNet(nn.Module):
         nn.ReLU()
         )
         
-        self.decoder = nn.ModuleList([PointGenCon(bottleneck_size = 2 +self.bottleneck_size) for i in range(0,self.nb_primitives)])
+        self.decoder = nn.ModuleList([PointGenCon(bottleneck_size=2+self.bottleneck_size) for i in range(0, self.nb_primitives)])
 
     def forward(self, x):
         x = self.encoder(x)
         outs = []
-        for i in range(0,self.nb_primitives):
+        for i in range(0, self.nb_primitives):
             rand_grid = torch.cuda.FloatTensor(x.size(0),2,self.num_points//self.nb_primitives)
             rand_grid.data.uniform_(0,1)
             y = x.unsqueeze(2).expand(x.size(0),x.size(1), rand_grid.size(2)).contiguous()
@@ -179,23 +181,21 @@ class DG_AtlasNet(nn.Module):
         return torch.cat(outs,2).contiguous()
 
 
-
-
 if __name__ == '__main__':
 
-        
     B, N, D = 2, 2500, 3
 
     data = torch.rand(B, D, N)
 
-    net = DG_AtlasNet(num_points = 2500, bottleneck_size = 1024, nb_primitives=25)
+    net = DG_AtlasNet(num_points=2500, bottleneck_size=1024, nb_primitives=25)
     net.cuda()
     model_summary(net, True)
 
     data = data.cuda()
     out = net(data)
-    print('input data size: ', data.size())
-    print('output data size: ', out.size())
+    print(data)
+    print('Input data size: ', data.size())
+    print('Output data size: ', out.size())
 
 
 

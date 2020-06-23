@@ -3,6 +3,7 @@
 import os
 import random
 import numpy as np
+import pandas as pd
 from plyfile import (PlyData, PlyElement)
 
 import scipy.sparse
@@ -122,7 +123,6 @@ def save_xyz_data(filename, ver):
     np.savetxt(write_path, ver)
 
 
-
 # --------------------------------
 # MESH UTILS
 # --------------------------------
@@ -133,8 +133,8 @@ def get_adjacency_matrix(vertex, faces, K_max='None'):
     Input: vertex = (N x 3)
            faces = (F x 3) triangle mesh 
 
-    Output: sparase adjacency matrix = (N x K) where K is the max numbers of neighbours. 
-            Each row lists the vertex indices of the neighbhours. index starts from 1. 
+    Output: sparse adjacency matrix = (N x K) where K is the max numbers of neighbours.
+            Each row lists the vertex indices of the neighbours. index starts from 1.
             The rows are padded with zeros.
     """
 
@@ -529,13 +529,12 @@ def pt2triangle(query, vertices, f, v_normal):
 
     else:
         raise NotImplementedError("region not selected")
-            
 
     p0 = B + ss*E0 + tt*E1
     
-    n =  n1 + ss*(n2-n1) + tt*(n3-n1)
+    n = n1 + ss*(n2-n1) + tt*(n3-n1)
     mag = np.sqrt(np.sum((n*n)))
-    if mag!=0:
+    if mag != 0:
         n = n/mag
 
     dist = ss*(a*ss+b*tt+2*d) + tt*(b*ss+c*tt+2*e) + f
@@ -555,7 +554,7 @@ def distance_pt2mesh(vertices, faces, query_pts):
            normals = N'x3 (normals of the closest pt on the mesh)
     """
 
-    if query_pts.ndim==1:
+    if query_pts.ndim == 1:
         query_pts = np.expand_dims(query_pts, axis=0)
     
     N = vertices.shape[0]
@@ -590,9 +589,9 @@ def distance_pt2mesh(vertices, faces, query_pts):
         D = np.asarray(D)
         index = np.argmin(D)
 
-        output_pts[ii,:] = P[index]
+        output_pts[ii, :] = P[index]
         dist[ii] = D[index]
-        normals[ii,:] = N[index]
+        normals[ii, :] = N[index]
 
     return output_pts, dist, normals
 
@@ -612,7 +611,7 @@ def farthest_point_sample(pts, K):
     def calc_distances(p0, points):
         return ((p0 - points)**2).sum(axis=1)
 
-    farthest_pts = np.zeros((K,3))
+    farthest_pts = np.zeros((K, 3))
     farthest_pts[0] = pts[np.random.randint(len(pts))]
     distances = calc_distances(farthest_pts[0], pts)
     
@@ -665,7 +664,7 @@ def uniform_sampling(vertices, faces, n_samples=1000, reverse=False):
         sample_face_idx[acc: acc + _n_sample] = face_idx
         acc += _n_sample
 
-    r = np.random.rand(n_samples, 2);
+    r = np.random.rand(n_samples, 2)
     A = vertices[faces[sample_face_idx, 0], :]
     B = vertices[faces[sample_face_idx, 1], :]
     C = vertices[faces[sample_face_idx, 2], :]
@@ -814,6 +813,28 @@ def normalize_shape(vertices):
     return vertices
 
 
+def get_color(df, name):
+    color = df.loc[df['mesh_file'] == name].rgb.item()
+    color = np.array(color.split(' ')).astype(int)
+    return color
+
+
+def _generate_colors():
+    R = random.randrange(0, 256)
+    G = random.randrange(0, 256)
+    B = random.randrange(0, 256)
+    return R, G, B
+
+
+def generate_color_data(data_dir):
+    df = pd.DataFrame(columns=['mesh_file', 'rgb'])
+    for file in os.listdir(data_dir):
+        if file.endswith(".obj"):
+            color = ' '.join(map(str, _generate_colors()))
+            df = df.append({'mesh_file': file, 'rgb': color}, ignore_index=True)
+    df.to_csv(os.path.join(data_dir, 'color_data.csv'))
+    return df
+
 
 # --------------------------------
 # TRAINING UTILS
@@ -910,7 +931,6 @@ def create_visdom_curve(viz, typ='scatter', viz_env='main'):
     return graph
 
 
-
 if __name__ == "__main__":
 
     filename = '../data/sample.obj'
@@ -924,9 +944,4 @@ if __name__ == "__main__":
     save_xyz_data('../data/sample.xyz', Vout)
     f = get_face_coordinates(V, F)
     print(f.shape)
-
-
-
-
-
 

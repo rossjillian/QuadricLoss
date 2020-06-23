@@ -5,6 +5,7 @@ import numpy as np
 import os
 import sys
 import scipy.sparse
+import pandas as pd
 
 import torch
 import torch.utils.data as data
@@ -14,36 +15,43 @@ from pc_utils import *
 
 
 class getDataset(data.Dataset):
-    def __init__(self, root, train=True, data_augment=True, small=False, category = ['abc_2.5k']):
+    def __init__(self, root, train=True, data_augment=True, small=False, category='abc_2.5k', color=False):
         
         self.root = root
         self.train = train
         self.data_augment = data_augment    
         self.small = small         # test on a small dataset
 
-        shape_paths = []            # path of all mesh files
-        for shape_class in category:
-            if self.train:
-                if self.small:
-                    self.file = os.path.join(self.root, shape_class, 'train.txt')
-                else:
-                    self.file = os.path.join(self.root, shape_class, 'train_full.txt')
+        shape_paths = []           # path of all mesh files
+        if color and os.path.isfile(os.path.join(root, category, 'color_data.csv')):     # mesh color feature
+            self.color = pd.read_csv(os.path.join(root, category, 'color_data.csv'))
+            self.color.set_index('mesh_file')
+        elif color:
+            self.color = generate_color_data(os.path.join(root, category))
+            self.color.set_index('mesh_file')
+        else:
+            self.color = None
+    
+        if self.train:
+            if self.small:
+                self.file = os.path.join(self.root, category, 'train.txt')
             else:
-                if self.small:
-                    self.file = os.path.join(self.root, shape_class, 'test.txt')
-                else:
-                    self.file = os.path.join(self.root, shape_class, 'test_full.txt')
-
-            with open(self.file) as f:
-                for line in f:
-                    shape_paths.append(os.path.join(self.root, shape_class, line.strip()))
+                self.file = os.path.join(self.root, category, 'train_full.txt')
+        else:
+            if self.small:
+                self.file = os.path.join(self.root, category, 'test.txt')
+            else:
+                self.file = os.path.join(self.root, category, 'test_full.txt')
+    
+        with open(self.file) as f:
+            for line in f:
+                shape_paths.append(os.path.join(self.root, category, line.strip()))
 
         self.datapath=[]
         if self.data_augment:
-            """ data augment by scaling and rotation""" 
+            """ Data augment by scaling and rotation """
             for line in shape_paths:
-                
-                mesh_path = line 
+                mesh_path = line
                 mesh={}
                 mesh["rotate"] = False
                 mesh["scale"] = True
@@ -62,15 +70,14 @@ class getDataset(data.Dataset):
                 mesh["path"] = mesh_path
                 self.datapath.append(mesh)
 
-        for line in shape_paths:
-                mesh = {}
-                mesh_path = line 
-                mesh["rotate"]=False
+        else:
+            for line in shape_paths:
+                mesh={}
+                mesh_path = line
+                mesh["rotate"] = False
                 mesh["scale"] = False
                 mesh["path"] = mesh_path
-                
                 self.datapath.append(mesh)
-
 
     def __getitem__(self, index):
 
@@ -95,55 +102,48 @@ class getDataset(data.Dataset):
         face_coords = get_face_coordinates(vertices, faces, K_max=271)
         normal = compute_vertex_normals(vertices, faces)
         # vertices = farthest_point_sample(vertices, 2500)
-        
+        file_name = os.path.basename(os.path.normpath(fn["path"]))
+        if self.color is not None:
+            color = get_color(self.color, file_name)
+
         vertices = self.convert_to_tensor(vertices)
         Q = self.convert_to_tensor(Q)
         Q = Q.view(vertices.size()[0], -1)
         adj = self.convert_to_tensor(adj)
         normal = self.convert_to_tensor(normal)
         face_coords = self.convert_to_tensor(face_coords)
+        if self.color is not None:
+            color = self.convert_to_tensor(color)
+        else:
+            color = torch.zeros(3)
 
-        return vertices, Q, adj, normal, face_coords
-
+        return vertices, Q, adj, normal, face_coords, color
 
     def convert_to_tensor(self, x):
         x = torch.from_numpy(x.astype(np.float32))
-        
         return x
 
     def __len__(self):
         return len(self.datapath)
 
 
-
-
 if __name__ == "__main__":
     
     path = '../data'
 
-    obj = getDataset(root = path, train=False, data_augment=False, small=False, category=['abc_2.5k'])
+    obj = getDataset(root=path, train=False, data_augment=False, small=False, category='mujoco_data', color=False)
     
-    testdataloader = torch.utils.data.DataLoader(obj, batch_size = 1, shuffle=False, num_workers=4)
-    
-    print(len(obj))
+    testdataloader = torch.utils.data.DataLoader(obj, batch_size=1, shuffle=False, num_workers=4)
+
     for i, data in enumerate(testdataloader, 0):
-
-        v, q, adj, normal, f = data
-        print(v.size(), q.size(), adj.size(), normal.size(), f.size())
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        v, q, adj, normal, f, c = data
+        print(v)
+        print(c)
+        print(c.unsqueeze_(-1))
+        print(v.size(), q.size(), adj.size(), normal.size(), f.size(), c.size())
+        test = v.transpose(2,1)
+        print(test)
+        print(test.size())
+        inputs = torch.cat((test, c), 2)
+        print(inputs)
+        print(inputs.size())
