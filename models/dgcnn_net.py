@@ -12,7 +12,7 @@ import torch.nn.functional as F
 
 from init import *
 
-sys.path.append('../utils/')
+sys.path.append('./utils/')
 from pc_utils import model_summary
 
 
@@ -97,14 +97,12 @@ class dgcnn_encoder(nn.Module):
         # Bx1024
         x = x.view(B, -1)
 
-        # Bx1027
-
         return x
 
 
 """ Decoders"""
 class PointGenCon(nn.Module):
-    def __init__(self, bottleneck_size=2500):
+    def __init__(self, bottleneck_size=2501):
         self.bottleneck_size = bottleneck_size
         super(PointGenCon, self).__init__()
         self.conv1 = torch.nn.Conv1d(self.bottleneck_size, self.bottleneck_size, 1)

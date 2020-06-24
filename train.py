@@ -31,7 +31,7 @@ parser.add_argument('--augment', action='store_true',  help='Data Augmentation')
 parser.add_argument('--color', default=None, help='Include color information in mesh embedding')
 parser.add_argument('--num_points', type=int, default=2500,  help='number of points')
 parser.add_argument('--small', action='store_true', help='train with small dataset')
-parser.add_argument('--cls', nargs="+", type=str, help='shape dataset')
+parser.add_argument('--cls', type=str, help='shape dataset')
 parser.add_argument('--seed', type=int, default=None,  help='seed')
 
 parser.add_argument('--model', type=str, default = 'None',  help='load pretrained model')
@@ -89,7 +89,7 @@ random.seed(opt.seed)
 torch.manual_seed(opt.seed)
 
 # ===============================================LOAD DATASET================================= #
-
+print(opt.cls)
 traindataset = getDataset(root=opt.dataDir, train=True, data_augment=opt.augment, small=opt.small, category=opt.cls)
 traindataloader = torch.utils.data.DataLoader(traindataset, batch_size = opt.batchSize, 
                                               shuffle=True, num_workers=opt.workers)
@@ -136,6 +136,7 @@ def train(ep):
         
         points, Q, adj, normal, face_coords, color = data
         points = points.transpose(2,1)
+        color = color.unsqueeze_(-1)
         color_points = torch.cat((points, color), 2)
 
         points = points.cuda()
@@ -144,10 +145,11 @@ def train(ep):
         normal = normal.cuda()
         face_coords = face_coords.cuda()
         color = color.cuda()
-        color_points.cuda()
+        color_points = color_points.cuda()
         
         recon_color_points = network(color_points)
         recon_color_points = recon_color_points.transpose(2,1)
+        print(recon_color_points.size())
         recon_points, recon_color = torch.split(recon_color_points, opt.num_points)
         points = points.transpose(2,1)
         color = color.transpose(2,1)

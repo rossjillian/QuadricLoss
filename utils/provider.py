@@ -34,18 +34,18 @@ class getDataset(data.Dataset):
     
         if self.train:
             if self.small:
-                self.file = os.path.join(self.root, category, 'train.txt')
+                self.file = os.path.join(root, category, 'train.txt')
             else:
-                self.file = os.path.join(self.root, category, 'train_full.txt')
+                self.file = os.path.join(root, category, 'train_full.txt')
         else:
             if self.small:
-                self.file = os.path.join(self.root, category, 'test.txt')
+                self.file = os.path.join(root, category, 'test.txt')
             else:
-                self.file = os.path.join(self.root, category, 'test_full.txt')
+                self.file = os.path.join(root, category, 'test_full.txt')
     
         with open(self.file) as f:
             for line in f:
-                shape_paths.append(os.path.join(self.root, category, line.strip()))
+                shape_paths.append(os.path.join(root, category, line.strip()))
 
         self.datapath=[]
         if self.data_augment:

@@ -8,7 +8,7 @@ python train.py \
     --cls abc_2.5k \
     --batchSize 16 \
     --nepoch 300 \
-    --logf log1 \
+    --logf log2 \
     --chamLoss_wt 0.0 \
     --quadLoss_wt 1.0 \
     --sufNorLoss_wt 0.0 \
