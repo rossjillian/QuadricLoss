@@ -115,7 +115,7 @@ class getDataset(data.Dataset):
         if self.color is not None:
             color = self.convert_to_tensor(color)
         else:
-            color = torch.zeros(3)
+            color = torch.zeros(len(vertices), 3)
 
         return vertices, Q, adj, normal, face_coords, color
 
@@ -131,7 +131,7 @@ if __name__ == "__main__":
     
     path = '../data'
 
-    obj = getDataset(root=path, train=False, data_augment=False, small=False, category='mujoco_data', color=True)
+    obj = getDataset(root=path, train=False, data_augment=False, small=False, category='mujoco_data', color=False)
     
     testdataloader = torch.utils.data.DataLoader(obj, batch_size=1, shuffle=False, num_workers=4)
 
@@ -143,3 +143,4 @@ if __name__ == "__main__":
         inputs = torch.cat((v, c), 2)
         print(inputs)
         print(inputs.size())
+        print(torch.split(inputs, 3, dim=2)[0])
