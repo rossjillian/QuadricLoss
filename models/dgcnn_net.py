@@ -102,7 +102,7 @@ class dgcnn_encoder(nn.Module):
 
 """ Decoders"""
 class PointGenCon(nn.Module):
-    def __init__(self, bottleneck_size=2501):
+    def __init__(self, bottleneck_size=2500):
         self.bottleneck_size = bottleneck_size
         super(PointGenCon, self).__init__()
         self.conv1 = torch.nn.Conv1d(self.bottleneck_size, self.bottleneck_size, 1)

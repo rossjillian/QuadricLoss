@@ -813,10 +813,10 @@ def normalize_shape(vertices):
     return vertices
 
 
-def get_color(df, name):
+def get_color(df, name, n):
     color = df.loc[df['mesh_file'] == name].rgb.item()
     color = np.array(color.split(' ')).astype(int)
-    return color
+    return np.tile(color, (n, 1))
 
 
 def _generate_colors():

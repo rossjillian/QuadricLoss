@@ -209,8 +209,8 @@ def test(ep):
     with torch.no_grad():
         for i, data in enumerate(testdataloader, 0):
             points, Q, adj, normal, face_coords, color = data
-            points = points.transpose(2, 1)
             color_points = torch.cat((points, color), 2)
+            color_points = color_points.transpose(2,1)
 
             points = points.cuda()
             Q = Q.cuda()

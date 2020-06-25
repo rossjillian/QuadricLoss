@@ -104,7 +104,7 @@ class getDataset(data.Dataset):
         # vertices = farthest_point_sample(vertices, 2500)
         file_name = os.path.basename(os.path.normpath(fn["path"]))
         if self.color is not None:
-            color = get_color(self.color, file_name)
+            color = get_color(self.color, file_name, len(vertices))
 
         vertices = self.convert_to_tensor(vertices)
         Q = self.convert_to_tensor(Q)
@@ -131,7 +131,7 @@ if __name__ == "__main__":
     
     path = '../data'
 
-    obj = getDataset(root=path, train=False, data_augment=False, small=False, category='mujoco_data', color=False)
+    obj = getDataset(root=path, train=False, data_augment=False, small=False, category='mujoco_data', color=True)
     
     testdataloader = torch.utils.data.DataLoader(obj, batch_size=1, shuffle=False, num_workers=4)
 
@@ -139,11 +139,7 @@ if __name__ == "__main__":
         v, q, adj, normal, f, c = data
         print(v)
         print(c)
-        print(c.unsqueeze_(-1))
         print(v.size(), q.size(), adj.size(), normal.size(), f.size(), c.size())
-        test = v.transpose(2,1)
-        print(test)
-        print(test.size())
-        inputs = torch.cat((test, c), 2)
+        inputs = torch.cat((v, c), 2)
         print(inputs)
         print(inputs.size())
