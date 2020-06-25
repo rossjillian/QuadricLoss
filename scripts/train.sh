@@ -6,9 +6,9 @@ python train.py \
     --dataDir ./data \
     --num_points 2500 \
     --cls abc_2.5k \
-    --batchSize 16 \
+    --batchSize 8 \
     --nepoch 300 \
-    --logf log2 \
+    --logf overfit1 \
     --chamLoss_wt 0.0 \
     --quadLoss_wt 1.0 \
     --sufNorLoss_wt 0.0 \

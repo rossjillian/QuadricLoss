@@ -24,7 +24,7 @@ class dgcnn_encoder(nn.Module):
 
         self.k = k
 
-        self.conv1 = nn.Conv2d(6, 64, kernel_size=1, bias=False)
+        self.conv1 = nn.Conv2d(12, 64, kernel_size=1, bias=False)
         self.conv2 = nn.Conv2d(128, 64, kernel_size=1, bias=False)
         self.conv3 = nn.Conv2d(128, 64, kernel_size=1, bias=False)
         self.conv4 = nn.Conv2d(128, 128, kernel_size=1, bias=False)
@@ -108,7 +108,7 @@ class PointGenCon(nn.Module):
         self.conv1 = torch.nn.Conv1d(self.bottleneck_size, self.bottleneck_size, 1)
         self.conv2 = torch.nn.Conv1d(self.bottleneck_size, self.bottleneck_size//2, 1)
         self.conv3 = torch.nn.Conv1d(self.bottleneck_size//2, self.bottleneck_size//4, 1)
-        self.conv4 = torch.nn.Conv1d(self.bottleneck_size//4, 3, 1)
+        self.conv4 = torch.nn.Conv1d(self.bottleneck_size//4, 6, 1)
 
         self.th = nn.Tanh()
         self.bn1 = torch.nn.BatchNorm1d(self.bottleneck_size)
