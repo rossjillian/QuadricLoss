@@ -215,7 +215,7 @@ def test(ep):
             normal = normal.cuda()
             face_coords = face_coords.cuda()
             color = color.cuda()
-            color_points.cuda()
+            color_points = color_points.cuda()
 
             recon_color_points = network(color_points)
             recon_color_points = recon_color_points.transpose(2, 1)
