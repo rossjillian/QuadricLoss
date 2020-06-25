@@ -135,9 +135,12 @@ def train(ep):
         optimizer.zero_grad()
         
         points, Q, adj, normal, face_coords, color = data
-        points = points.transpose(2,1)
-        color = color.unsqueeze_(-1)
+        print(points)
+        print(points.size())
+        print(color)
+        print(color.size())
         color_points = torch.cat((points, color), 2)
+        color_points = color_points.transpose(2,1)
 
         points = points.cuda()
         Q = Q.cuda()
@@ -149,8 +152,8 @@ def train(ep):
         
         recon_color_points = network(color_points)
         recon_color_points = recon_color_points.transpose(2,1)
-        print(recon_color_points.size())
-        recon_points, recon_color = torch.split(recon_color_points, opt.num_points)
+        recon_points = torch.split(recon_color_points, 3, dim=2)[0]
+        recon_color = torch.split(recon_color_points, 3, dim=2)[1]
         points = points.transpose(2,1)
         color = color.transpose(2,1)
 
@@ -222,7 +225,8 @@ def test(ep):
 
             recon_color_points = network(color_points)
             recon_color_points = recon_color_points.transpose(2, 1)
-            recon_points, recon_color = torch.split(recon_color_points, opt.num_points)
+            recon_points = torch.split(recon_color_points, 3, dim=2)[0]
+            recon_color = torch.split(recon_color_points, 3, dim=2)[1]
             points = points.transpose(2, 1)
             color = color.transpose(2, 1)
 
