@@ -29,9 +29,10 @@ from losses import *
 # =============PARAMETERS======================================== #
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataDir', type=str, default=" ", help='input data dir')
-parser.add_argument('--cls', nargs="+", type=str, help='which category')
+parser.add_argument('--cls', type=str, help='which category')
 parser.add_argument('--augment', action='store_true',  help='Data Augmentation')
 parser.add_argument('--small', action='store_true', help='train with small dataset')
+parser.add_argument('--color', default=None, help="Include color information in mesh embedding")
 
 parser.add_argument('--model', type=str, default = '',  help='load pretrained model')
 parser.add_argument('--outf', type=str, default = 'out1',  help='out folder')
@@ -51,8 +52,8 @@ if not os.path.exists(opt.outf):
 
 
 # ===================CREATE DATASET================================= #
-traindataset = getDataset(root=opt.dataDir, train=True, data_augment=opt.augment, small=opt.small, category=opt.cls)
-testdataset = getDataset(root=opt.dataDir, train=False, data_augment=opt.augment, small=opt.small, category=opt.cls)
+traindataset = getDataset(root=opt.dataDir, train=True, data_augment=opt.augment, small=opt.small, category=opt.cls, color=opt.color)
+testdataset = getDataset(root=opt.dataDir, train=False, data_augment=opt.augment, small=opt.small, category=opt.cls, color=opt.color)
 
 print('Train Dataset:', len(traindataset))
 print('Test Dataset:', len(testdataset)) 
@@ -67,13 +68,13 @@ else:
 network = DG_AtlasNet(num_points = opt.num_points, bottleneck_size=opt.bottleneck_size, nb_primitives=opt.nb_primitives)
 
 network.load_state_dict(torch.load(opt.model))
-print('loaded a pretrained model %s' %(opt.model))
+print('Loaded a pretrained model %s' %(opt.model))
 
 network.cuda() 
-print('network on cuda')
+print('Network on cuda')
 
 network.eval()
-print('network on evaluation mode')
+print('Network on evaluation mode')
 
 # borrowed from AtlasNet(https://github.com/ThibaultGROUEIX/AtlasNet/blob/master/inference/run_AE_AtlasNet.py)
 # defining the 2D square grid
@@ -133,16 +134,20 @@ with torch.no_grad():
         points, Q, _, _, _, color = data
 
         points = points.unsqueeze(0)
-        points = points.transpose(2,1)
+        color = color.unsqueeze(0)
+        color_points = torch.cat((points, color),  2)
+        color_points = color_points.transpose(2,1)
 
+        color_points = color_points.cuda()
         points = points.cuda()
         Q = Q.cuda()
         Q = Q.unsqueeze(0)
 
-        recon_points = network.forward_inference(points, grid)
+        recon_color_points = network.forward_inference(color_points, grid)
 
-        recon_points = recon_points.transpose(2,1)
-        points = points.transpose(2,1)
+        recon_color_points = recon_color_points.transpose(2,1)
+        recon_points = torch.split(recon_color_points, 3, dim=2)[0]
+        recon_color = torch.split(recon_color_points, 3, dim=2)[1]
 
         chamLoss, corres, _ = chamferLoss(points, recon_points) 
 

@@ -8,7 +8,8 @@ python train.py \
     --cls abc_2.5k \
     --batchSize 8 \
     --nepoch 300 \
-    --logf overfit1 \
+    --logf log3 \
+    --color True \
     --chamLoss_wt 0.0 \
     --quadLoss_wt 1.0 \
     --sufNorLoss_wt 0.0 \
